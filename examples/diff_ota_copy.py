@@ -66,7 +66,7 @@ def OpAmp(p: OpAmpParams) -> h.Module:
 
         # Internal Signals
         net1, net2, net3, net4, net5, net6, net7 = h.Signals(7)
-        cm = h.Signal()
+        # cm = h.Signal()
 
         # Input Stage & CMFB Bias
         mp1 = pmos(m=p.wp1)(d=net4, g=net4, s=VDD, b=VDD)
@@ -134,11 +134,16 @@ class MosDcopSim:
 
         VSS = h.Port()  # The testbench interface: sole port VSS
         vdc = h.Vdc(dc=1.2)(n=VSS)  # A DC voltage source
-        inst=OpAmp()()
+        dcin = h.Diff()
+        sigp = h.Vdc(dc=0.6)(n=VSS)
+        sign = h.Vdc(dc=0.55)(n=VSS)
+        dcin.p=sigp.p
+        dcin.n=sign.n
+        inst=OpAmp()(VDD=vdc.p, VSS=VSS, inp=dcin)
 
     # Simulation Stimulus
     op = hs.Op()
-    mod = hs.Include(sample_pdk.install.models)
+    mod = hs.Include("45nm_bulk.txt")
 
 
 def main():
