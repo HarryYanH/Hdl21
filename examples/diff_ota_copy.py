@@ -9,6 +9,7 @@ for differential circuits.
 import sys
 from copy import deepcopy
 import hdl21 as h
+import hdl21.sim as hs
 
 
 """ 
@@ -35,11 +36,26 @@ pmos = h.ExternalModule(
     paramtype=MosParams,
 )
 
+@h.paramclass
+class OpAmpParams:
+    """Parameter class"""
+    wp1 = h.Param(dtype=int, desc="Width of PMOS mp1", default=10)
+    wp2 = h.Param(dtype=int, desc="Width of PMOS mp2", default=10)
+    wp3 = h.Param(dtype=int, desc="Width of PMOS mp3", default=4)
+    wn1 = h.Param(dtype=int, desc="Width of NMOS mn1", default=38)
+    wn2 = h.Param(dtype=int, desc="Width of NMOS mn2", default=38)
+    wn3 = h.Param(dtype=int, desc="Width of NMOS mn3", default=9)
+    wn4 = h.Param(dtype=int, desc="Width of NMOS mn4", default=20)
+    wn5 = h.Param(dtype=int, desc="Width of NMOS mn5", default=60)
+    VDD = h.Param(dtype=float, desc="VDD voltage", default=1)
+    CL = h.Param(dtype=float, desc="CL capacitance", default=1)
+    Cc = h.Param(dtype=float, desc="Cc capacitance", default=1)
+    ibias = h.Param(dtype=float, desc="ibias current", default=1)
+
 
 @h.generator
-def DiffOta(_: h.HasNoParams) -> h.Module:
-    """# Fully Differential OTA
-    With input-stage common-mode feedback."""
+def OpAmp(p: OpAmpParams) -> h.Module:
+    """# Two stage OpAmp """
 
     @h.module
     class DiffOta:
@@ -47,28 +63,29 @@ def DiffOta(_: h.HasNoParams) -> h.Module:
         VDD, VSS = 2 * h.Input()
         inp = h.Diff(desc="Differential Input", port=True, role=h.Diff.Roles.SINK)
         out = h.Diff(desc="Differential Output", port=True, role=h.Diff.Roles.SOURCE)
-        vg, ibias = 2 * h.Input()
 
         # Internal Signals
         net1, net2, net3, net4, net5, net6, net7 = h.Signals(7)
         cm = h.Signal()
 
         # Input Stage & CMFB Bias
-        mp1 = pmos(m=1)(d=net4, g=net4, s=VDD, b=VDD)
-        mp2 = pmos(m=1)(d=net5, g=net4, s=VDD, b=VDD)
-        mn1 = pmos(m=1)(d=net4, g=net1, s=net3, b=net3)
-        mn2 = pmos(m=1)(d=net5, g=net1, s=net3, b=net3)
-        mn3 = pmos(m=1)(d=net3, g=net7, s=VSS, b=VSS)
+        mp1 = pmos(m=p.wp1)(d=net4, g=net4, s=VDD, b=VDD)
+        mp2 = pmos(m=p.wp2)(d=net5, g=net4, s=VDD, b=VDD)
+        mn1 = pmos(m=p.wn1)(d=net4, g=net1, s=net3, b=net3)
+        mn2 = pmos(m=p.wn2)(d=net5, g=net1, s=net3, b=net3)
+        mn3 = pmos(m=p.wn3)(d=net3, g=net7, s=VSS, b=VSS)
 
         # Output Stage
-        mp3 = pmos(m=1)(d=net6, g=net5, s=VDD, b=VDD)
-        mn5 = nmos(m=1)(d = net6, g = net7, s = VSS, b = VSS)
-        CL = h.Cap(c=1e-11)(p = net6, n = VSS)
+        mp3 = pmos(m=p.wp3)(d=net6, g=net5, s=VDD, b=VDD)
+        mn5 = nmos(m=p.wn5)(d = net6, g = net7, s = VSS, b = VSS)
+        CL = h.Cap(c=p.CL)(p = net6, n = VSS)
 
         # Biasing
-        mn4 = nmos(m = 1)(d = net7, g = net7, s = VSS, b = VSS)
-        isource = h.Isrc(dc = 3e-5)(p = net7, n = VDD)
+        mn4 = nmos(m=p.wn4)(d = net7, g = net7, s = VSS, b = VSS)
+        ibias = h.Isrc(dc = p.ibias)(p = net7, n = VDD)
 
+        net1=inp.p
+        net2=inp.n
         out.p=net6
         out.n=VSS
 
@@ -77,7 +94,7 @@ def DiffOta(_: h.HasNoParams) -> h.Module:
         # xpdiode = pmos(m=6)(d=pbias, g=pbias, s=VDD, b=VDD)
 
         # Compensation Network
-        Cc = h.Cap(c = 3e-12)(p = net5, n = net6)
+        Cc = h.Cap(c = p.Cc)(p = net5, n = net6)
 
     return DiffOta
 
@@ -107,8 +124,25 @@ class Compensation:
     c = CapCell(p=r.n, n=b, VDD=VDD, VSS=VSS)
 
 
+@hs.sim
+class MosDcopSim:
+    """# Mos Dc Operating Point Simulation Input"""
+
+    @h.module
+    class Tb:
+        """# Basic Mos Testbench"""
+
+        VSS = h.Port()  # The testbench interface: sole port VSS
+        vdc = h.Vdc(dc=1.2)(n=VSS)  # A DC voltage source
+        inst=OpAmp()()
+
+    # Simulation Stimulus
+    op = hs.Op()
+    mod = hs.Include(sample_pdk.install.models)
+
+
 def main():
-    h.netlist(DiffOta(), sys.stdout)
+    h.netlist(OpAmp(), sys.stdout)
 
 
 if __name__ == "__main__":
