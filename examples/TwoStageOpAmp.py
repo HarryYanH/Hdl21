@@ -10,6 +10,7 @@ import sys
 from copy import deepcopy
 import hdl21 as h
 import hdl21.sim as hs
+import vlsirtools.spice as vsp
 
 
 """ 
@@ -47,10 +48,10 @@ class OpAmpParams:
     wn3 = h.Param(dtype=int, desc="Width of NMOS mn3", default=9)
     wn4 = h.Param(dtype=int, desc="Width of NMOS mn4", default=20)
     wn5 = h.Param(dtype=int, desc="Width of NMOS mn5", default=60)
-    VDD = h.Param(dtype=float, desc="VDD voltage", default=1)
-    CL = h.Param(dtype=float, desc="CL capacitance", default=1)
-    Cc = h.Param(dtype=float, desc="Cc capacitance", default=1)
-    ibias = h.Param(dtype=float, desc="ibias current", default=1)
+    VDD = h.Param(dtype=float, desc="VDD voltage", default=1.2)
+    CL = h.Param(dtype=float, desc="CL capacitance", default=1e-11)
+    Cc = h.Param(dtype=float, desc="Cc capacitance", default=3e-12)
+    ibias = h.Param(dtype=float, desc="ibias current", default=3e-5)
 
 
 @h.generator
@@ -66,14 +67,18 @@ def OpAmp(p: OpAmpParams) -> h.Module:
 
         # Internal Signals
         net1, net2, net3, net4, net5, net6, net7 = h.Signals(7)
+        net1=inp.p
+        net2=inp.n
+        out.p=net6
+        out.n=VSS
         # cm = h.Signal()
 
         # Input Stage & CMFB Bias
         mp1 = pmos(m=p.wp1)(d=net4, g=net4, s=VDD, b=VDD)
         mp2 = pmos(m=p.wp2)(d=net5, g=net4, s=VDD, b=VDD)
-        mn1 = pmos(m=p.wn1)(d=net4, g=net1, s=net3, b=net3)
-        mn2 = pmos(m=p.wn2)(d=net5, g=net1, s=net3, b=net3)
-        mn3 = pmos(m=p.wn3)(d=net3, g=net7, s=VSS, b=VSS)
+        mn1 = nmos(m=p.wn1)(d=net4, g=net1, s=net3, b=net3)
+        mn2 = nmos(m=p.wn2)(d=net5, g=net1, s=net3, b=net3)
+        mn3 = nmos(m=p.wn3)(d=net3, g=net7, s=VSS, b=VSS)
 
         # Output Stage
         mp3 = pmos(m=p.wp3)(d=net6, g=net5, s=VDD, b=VDD)
@@ -84,10 +89,7 @@ def OpAmp(p: OpAmpParams) -> h.Module:
         mn4 = nmos(m=p.wn4)(d = net7, g = net7, s = VSS, b = VSS)
         ibias = h.Isrc(dc = p.ibias)(p = net7, n = VDD)
 
-        net1=inp.p
-        net2=inp.n
-        out.p=net6
-        out.n=VSS
+        
 
         # xndiode = nmos(m=1)(d=ibias, g=ibias, s=VSS, b=VSS)
         # xnsrc = nmos(m=1)(d=pbias, g=ibias, s=VSS, b=VSS)
@@ -135,19 +137,35 @@ class MosDcopSim:
         VSS = h.Port()  # The testbench interface: sole port VSS
         vdc = h.Vdc(dc=1.2)(n=VSS)  # A DC voltage source
         dcin = h.Diff()
-        sigp = h.Vdc(dc=0.6)(n=VSS)
-        sign = h.Vdc(dc=0.55)(n=VSS)
-        dcin.p=sigp.p
-        dcin.n=sign.n
-        inst=OpAmp()(VDD=vdc.p, VSS=VSS, inp=dcin)
+        sig_out = h.Diff()
+        sig_p = h.Vdc(dc=0.6)(n=VSS)
+        sig_n = h.Vdc(dc=0.55)(n=VSS)
+        dcin.p=sig_p.p
+        dcin.n=sig_n.p
+        inst=OpAmp()(VDD=vdc.p, VSS=VSS, inp=dcin, out=sig_out)
 
     # Simulation Stimulus
     op = hs.Op()
-    mod = hs.Include("45nm_bulk.txt")
+    mod = hs.Include("../examples/45nm_bulk.txt")
 
 
 def main():
     h.netlist(OpAmp(), sys.stdout)
+
+    opts = vsp.SimOptions(
+        simulator=vsp.SupportedSimulators.NGSPICE,
+        fmt=vsp.ResultFormat.SIM_DATA,  # Get Python-native result types
+        rundir="./scratch",  # Set the working directory for the simulation. Uses a temporary directory by default.
+    )
+    if not vsp.ngspice.available():
+        print("ngspice is not available. Skipping simulation.")
+        return
+
+    # Run the simulation!
+    results = MosDcopSim.run(opts)
+
+    # Get the transistor drain current
+    id = abs(results["op"].data["i(v.xtop.vvdc)"])
 
 
 if __name__ == "__main__":
