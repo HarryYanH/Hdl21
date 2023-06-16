@@ -56,7 +56,7 @@ mmn4
 + w='0.5u' l='90n' nf='1' m='20' 
 
 iibias
-+ net7 VDD 
++ VDD net7 
 + 0.00003
 * No parameters
 

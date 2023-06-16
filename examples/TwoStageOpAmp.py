@@ -94,7 +94,7 @@ def OpAmp(p: OpAmpParams) -> h.Module:
 
         # Biasing
         mn4 = nmos(m=p.wn4)(d = net7, g = net7, s = VSS, b = VSS) # Current mirror co-operating with mn3
-        ibias = h.Isrc(dc = p.ibias)(p = net7, n = VDD) # Ideal current source to be mirrored
+        ibias = h.Isrc(dc = p.ibias)(p = VDD, n = net7) # Ideal current source to be mirrored
 
         # Compensation Network
         Cc = h.Cap(c = p.Cc)(p = net5, n = out) # Miller Capacitance
