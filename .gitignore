@@ -3,7 +3,7 @@
 ## Custom Additions
 ## 
 
-scratch 
+# scratch 
 **/__pycache__
 **/*.so
 target
