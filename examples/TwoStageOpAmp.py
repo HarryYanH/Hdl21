@@ -136,17 +136,17 @@ class MosDcopSim:
         """# Basic Mos Testbench"""
 
         VSS = h.Port()  # The testbench interface: sole port VSS
-        vdc = h.Vdc(dc=1.2,ac=1)(n=VSS)  # A DC voltage source
+        vdc = h.Vdc(dc=1.2)(n=VSS)  # A DC voltage source
         dcin = h.Diff()
         sig_out = h.Signal()
-        sig_p = h.Vdc(dc=0.65)(p=dcin.p,n=VSS)
-        sig_n = h.Vdc(dc=0.55)(p=dcin.n,n=VSS)
+        sig_p = h.Vdc(dc=0.6, ac=0.5)(p=dcin.p,n=VSS)
+        sig_n = h.Vdc(dc=0.6, ac=-0.5)(p=dcin.n,n=VSS)
         
         inst=OpAmp()(VDD=vdc.p, VSS=VSS, inp=dcin, out=sig_out)
 
     # Simulation Stimulus
     op = hs.Op()
-    # ac = hs.Ac(sweep=hs.LogSweep(1e1, 1e10, 10))
+    ac = hs.Ac(sweep=hs.LogSweep(1e0, 1e10, 30))
     mod = hs.Include("../examples/45nm_bulk.txt")
 
 
@@ -167,7 +167,15 @@ def main():
 
     # Get the transistor drain current
     print(results)
-
+    # print(results["op"])
+    # print(results["ac"].data["v(xtop.sig_out)"])
+    # # print(results["ac"].data["v(xtop.dcin_p)"])
+    # # print(results["ac"].data["v(xtop.dcin_n)"])
+    # # result_list=list(results["ac"].data["v(xtop.sig_out)"])
+    # # print(result_list)
+    # # print(len(result_list))
+    # print(list(results["ac"].data["v(xtop.sig_out)"]))
+    # print(len(results["ac"].data["v(xtop.sig_out)"]))
 
 if __name__ == "__main__":
     main()

@@ -76,21 +76,21 @@ cCc
 vvdc
 + vdc_p VSS 
 + dc '1.2' 
-+ ac '1' 
++ ac '0' 
 * No parameters
 
 
 vsig_p
 + dcin_p VSS 
-+ dc '0.65' 
-+ ac '0' 
++ dc '0.6' 
++ ac '0.5' 
 * No parameters
 
 
 vsig_n
 + dcin_n VSS 
-+ dc '0.55' 
-+ ac '0' 
++ dc '0.6' 
++ ac '-0.5' 
 * No parameters
 
 
@@ -107,6 +107,9 @@ xtop 0 Tb // Top-Level DUT
 
 .include "../examples/45nm_bulk.txt"
 .op
+
+.ac dec 30 1.0 10000000000.0
+
 
 
 
