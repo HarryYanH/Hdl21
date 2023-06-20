@@ -108,7 +108,7 @@ xtop 0 Tb // Top-Level DUT
 .include "../examples/45nm_bulk.txt"
 .op
 
-.ac dec 30 1.0 10000000000.0
+.ac dec 10 10.0 10000000000.0
 
 
 
